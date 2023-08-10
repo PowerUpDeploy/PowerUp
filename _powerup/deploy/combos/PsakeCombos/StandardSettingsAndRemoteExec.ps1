@@ -26,9 +26,11 @@ function getPackageInformationSettings()
 
 function getFileBasedSettings($section, $fileName, $includeEnvironment = $false, $overrideSettings = $null, $verbose = $false)
 {
+    $currentPath = Get-Location
+
     import-module AffinityId\Id.PowershellExtensions.dll
 
-    get-parsedsettings -filePattern $fileName -section $section -overrideSettings $overrideSettings -appendReservedSettings $includeEnvironment -verbose:$verbose
+    get-parsedsettings -filePattern $fileName -section $section -overrideSettings $overrideSettings -appendReservedSettings $includeEnvironment -directory $currentPath -verbose:$verbose
 }
 
 function run($task, $servers, $remoteWorkingSubFolder = $null)
