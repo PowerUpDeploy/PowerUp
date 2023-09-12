@@ -6,7 +6,7 @@
     <include buildfile="_powerup\build\nant\common.build" />
     <property name="nuspec.name" value="" />
 	<property name="version.major" value="1" />
-	<property name="version.minor" value="62" />
+	<property name="version.minor" value="64" />
 
     <target name="build-package" depends="clean compile-solutions run-tests package-project copy-build-files-custom create-nupkg-files" />
 
