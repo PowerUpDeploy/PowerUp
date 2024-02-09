@@ -1,7 +1,9 @@
-function Execute-Command($Command, $CommandName) {
+function Execute-Command($Command, $CommandName)
+{
     $currentRetry = 0;
     $success = $false;
-    do {
+    do
+    {
         try
         {
             & $Command;
@@ -12,10 +14,13 @@ function Execute-Command($Command, $CommandName) {
         {
             $message = 'Exception occurred while trying to execute [$CommandName] command:' + $_.Exception.ToString();
             Write-Output $message;
-            if ($currentRetry -gt 5) {
+            if ($currentRetry -gt 5)
+            {
                 $message = "Can not execute [$CommandName] command. The error: " + $_.Exception.ToString();
                 throw $message;
-            } else {
+            }
+            else
+            {
                 Write-Output "Sleeping before $currentRetry retry of [$CommandName] command";
                 Start-Sleep -s 1;
             }
@@ -44,7 +49,8 @@ function ReplaceDirectory([string]$sourceDirectory, [string]$destinationDirector
     Copy-Item $sourceDirectory\ -destination $destinationDirectory\ -container:$false -recurse -force
 }
 
-function Get-IsEmptyDirectory([string]$directory) {
+function Get-IsEmptyDirectory([string]$directory)
+{
     return !([bool](Get-ChildItem $directory\* -Force))
 }
 
@@ -54,10 +60,12 @@ function Remove-Directory([string]$directory)
     {
         Write-Output "Removing folder $directory"
 
-        try {
+        try
+        {
             Remove-Item $directory -recurse -force
         }
-        catch {
+        catch
+        {
             Write-Output "Failed to remove directory $directory, will sleep for 5 and try again"
             Start-Sleep -s 5;
 
@@ -102,7 +110,7 @@ function Copy-MirroredDirectory([string]$sourceDirectory, [string]$destinationDi
     Write-Output "Mirroring $sourceDirectory to $destinationDirectory"
     $robocopyExe = Join-Path (get-item env:\windir).value system32\robocopy.exe
 
-    if($excludedPaths)
+    if ($excludedPaths)
     {
         $dirs = $excludedPaths -join " "
         $output = & "$robocopyExe" $sourceDirectory $destinationDirectory /E /np /njh /nfl /ns /nc /mir /XD /R:0 $dirs
@@ -122,7 +130,8 @@ function Copy-MirroredDirectory([string]$sourceDirectory, [string]$destinationDi
     }
 }
 
-function RobocopyFile {
+function RobocopyFile
+{
     param (
         [string]$sourceDirectory,
         [string]$destinationDirectory,
@@ -131,20 +140,25 @@ function RobocopyFile {
     )
 
     #Robocopy seems fussy that dirs end in a trailing slash when copying files
-    if (!($sourceDirectory.EndsWith("\"))){
-      $sourceDirectory = $sourceDirectory + "\"
+    if (!($sourceDirectory.EndsWith("\")))
+    {
+        $sourceDirectory = $sourceDirectory + "\"
     }
 
-    if (!($destinationDirectory.EndsWith("\"))){
-      $destinationDirectory = $destinationDirectory + "\"
+    if (!($destinationDirectory.EndsWith("\")))
+    {
+        $destinationDirectory = $destinationDirectory + "\"
     }
 
     Write-Output "Robocopying $filename from $sourceDirectory to $destinationDirectory"
     $robocopyExe = Join-Path (get-item env:\windir).value system32\robocopy.exe
 
-    if ($quiet) {
+    if ($quiet)
+    {
         $output = & "$robocopyExe" "$sourceDirectory" "$destinationDirectory" "$filename"
-    } else {
+    }
+    else
+    {
         & "$robocopyExe" "$sourceDirectory" "$destinationDirectory" "$filename"
     }
 
@@ -158,51 +172,78 @@ function RobocopyFile {
     }
 }
 
-function New-Shortcut ( [string]$targetPath, [string]$fullShortcutPath, [string] $icon = $null, [string] $arguments = $null){
+function Copy-ToPsSession ([Parameter(Mandatory)][string]$sourceDirectory, [Parameter(Mandatory)][string]$destinationDirectory, [Parameter(Mandatory)]$session, [string]$includeFilter = "") 
+{
+    Write-Output "Deleting existing files"
+    Invoke-Command -Session $session -ScriptBlock { 
+        param ( $destinationDirectory ) 
+        if(Test-Path $destinationDirectory)
+        {
+           Remove-Item -Path $destinationDirectory -Recurse -Force 
+        }
+        
+        New-Item -ItemType Directory -Path $destinationDirectory
+    } -ArgumentList $destinationDirectory
+    
+
+    $zipFile = Get-ChildItem -Path $sourceDirectory -Filter $includeFilter -File | Select-Object -First 1
+    $destination = Join-Path -Path $destinationDirectory -ChildPath $zipFile.Name
+    Write-Output "Copying artifact zip $($zipFile.FullName) to $destination on the remote server $($session.ComputerName)"
+    
+    Copy-Item -ToSession $session -Path $zipFile -Destination $destination
+}
+
+function New-Shortcut ([string]$targetPath, [string]$fullShortcutPath, [string] $icon = $null, [string] $arguments = $null)
+{
     Write-Output "Creating shortcut $fullShortcutPath targeting path $targetPath"
 
     $WshShell = New-Object -comObject WScript.Shell
     $Shortcut = $WshShell.CreateShortcut($fullShortcutPath)
     $Shortcut.TargetPath = $targetPath
-    if ($icon) {
+    if ($icon)
+    {
         $Shortcut.IconLocation = $icon;
     }
-    if ($arguments) {
+    if ($arguments)
+    {
         $Shortcut.Arguments = $arguments;
     }
 
     $Shortcut.Save()
 }
 
-function New-DesktopShortcut ( [string]$targetPath , [string]$shortcutName, [string] $icon = $null ){
+function New-DesktopShortcut ([string]$targetPath , [string]$shortcutName, [string] $icon = $null )
+{
     New-Shortcut $targetPath "$env:USERPROFILE\Desktop\$shortcutName" $icon
 }
 
-function Remove-DesktopShortcut ([string]$shortcutName) {
+function Remove-DesktopShortcut ([string]$shortcutName)
+{
     $fileName = "$env:USERPROFILE\Desktop\$shortcutName"
-    if (Test-Path $fileName) {
+    if (Test-Path $fileName)
+    {
         Remove-Item $fileName -force
     }
 }
 
 function Write-FileToConsole([string]$fileName)
 {
-    $line=""
+    $line = ""
 
     if ([System.IO.File]::Exists($fileName))
     {
-        $streamReader=new-object System.IO.StreamReader($fileName)
-        $line=$streamReader.ReadLine()
+        $streamReader = new-object System.IO.StreamReader($fileName)
+        $line = $streamReader.ReadLine()
         while ($line -ne $null)
         {
             Write-Output $line
-            $line=$streamReader.ReadLine()
+            $line = $streamReader.ReadLine()
         }
         $streamReader.close()
     }
     else
     {
-       Write-Output "Source file ($fileName) does not exist."
+        Write-Output "Source file ($fileName) does not exist."
     }
 }
 
@@ -231,9 +272,11 @@ function Invoke-Executable
         $proc = Start-Process $exe -Wait -PassThru -NoNewWindow -ArgumentList $params
     }
 
-    if ($proc.ExitCode -gt 0) {
+    if ($proc.ExitCode -gt 0)
+    {
         $exitCode = [string]$proc.ExitCode
-        if ($ignoreFailure) {
+        if ($ignoreFailure)
+        {
             cmd /c
             Write-ColoredOutput "$exe failed with exit code $exitCode, but ignoring failure" -foregroundcolor "yellow"
         }

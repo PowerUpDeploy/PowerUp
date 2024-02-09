@@ -10,3 +10,4 @@ obj
 *.user
 /PowerUpPowershellExtensions/packages
 /PowerUpPowershellExtensions/.vs/PowershellExtensions/v15/Server/sqlite3
+.vs/
