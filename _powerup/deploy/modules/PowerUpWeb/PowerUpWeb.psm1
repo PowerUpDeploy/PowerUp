@@ -369,7 +369,7 @@ function New-WebSiteBinding($websiteName, $hostHeader, $protocol="http", $ip="*"
 function New-WebSiteBindingNonHttp($websiteName, $protocol, $bindingInformation)
 {
 	Write-Output "Binding website $websiteName to binding information $bindingInformation over $protocol"
-	New-ItemProperty $sitesPath\$websiteName �name bindings �value @{protocol="$protocol";bindingInformation="$bindingInformation"} | out-null
+	New-ItemProperty $sitesPath\$websiteName name bindings value @{protocol="$protocol";bindingInformation="$bindingInformation"} | out-null
 }
 
 function Get-WebSitePhysicalPath($websiteName)
