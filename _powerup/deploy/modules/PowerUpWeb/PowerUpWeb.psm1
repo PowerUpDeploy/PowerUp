@@ -150,7 +150,7 @@ function NoExistingWebsites {
 		
 }
 
-function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $ipAddress, $port, $url)
+function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $ipAddress, $port, $url, $sni)
 {
 	if ([System.Convert]::ToBoolean($useSelfSignedCert))
 	{
@@ -159,7 +159,7 @@ function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $
 	}
 		
 	set-sslbinding $certificateName $ipAddress $port
-	set-websitebinding $websiteName $url "https" $ipAddress $port 
+	set-websitebinding $websiteName $url "https" $ipAddress $port $sni
 }
 
 function GetSslCertificate($certName)
@@ -346,26 +346,30 @@ function EnsureSelfSignedSslCertificate($certName)
 	}
 }
 
-function Set-WebSiteBinding($websiteName, $hostHeader, $protocol="http", $ip="*", $port="80")
+function Set-WebSiteBinding($websiteName, $hostHeader, $protocol="http", $ip="*", $port="80", $sni=$false)
 {
 	$existingBinding = get-webbinding -Name $websiteName -IP $ip -Port $port -Protocol $protocol -HostHeader $hostHeader
 	
 	if(!$existingBinding)
 	{
-		new-websitebinding $websiteName $hostHeader $protocol $ip $port 
+		new-websitebinding $websiteName $hostHeader $protocol $ip $port $sni
 	}
 }
 
-function New-WebSiteBinding($websiteName, $hostHeader, $protocol="http", $ip="*", $port="80")
+function New-WebSiteBinding($websiteName, $hostHeader, $protocol="http", $ip="*", $port="80", $sni=$false)
 {
 	Write-Output "Binding website $websiteName to host header $hostHeader with IP $ip, port $port over $protocol"
-	New-WebBinding -Name $websiteName -IP $ip -Port $port -Protocol $protocol -HostHeader $hostHeader
+	if($sni=$true) {
+		New-WebBinding -Name $websiteName -IP $ip -Port $port -Protocol $protocol -HostHeader $hostHeader -SslFlags 1
+	} else {
+		New-WebBinding -Name $websiteName -IP $ip -Port $port -Protocol $protocol -HostHeader $hostHeader
+	}
 }
 
 function New-WebSiteBindingNonHttp($websiteName, $protocol, $bindingInformation)
 {
 	Write-Output "Binding website $websiteName to binding information $bindingInformation over $protocol"
-	New-ItemProperty $sitesPath\$websiteName –name bindings –value @{protocol="$protocol";bindingInformation="$bindingInformation"} | out-null
+	New-ItemProperty $sitesPath\$websiteName name bindings value @{protocol="$protocol";bindingInformation="$bindingInformation"} | out-null
 }
 
 function Get-WebSitePhysicalPath($websiteName)
