@@ -1,4 +1,41 @@
 
+$script:sessionCache = @{}
+
+function get-or-create-nondomain-session($server)
+{
+    $serverName = $server['server.name'][0]
+
+    if ($script:sessionCache.ContainsKey($serverName))
+    {
+        $cached = $script:sessionCache[$serverName]
+        if ($cached.State -eq 'Opened')
+        {
+            return $cached
+        }
+        $script:sessionCache.Remove($serverName)
+    }
+
+    Import-Module PowerUpSecrets
+    $password   = Get-KeepassSecret -VaultName $server['secret.vault.name'][0] `
+                                    -VaultPath $server['secret.vault.path'][0] `
+                                    -SecretName $server['secret.password.name'][0]
+    $credential = New-Object -TypeName System.Management.Automation.PSCredential `
+                      -ArgumentList $server['username'][0], $password
+
+    $session = New-PSSession -ComputerName $serverName -Credential $credential -UseSSL
+    $script:sessionCache[$serverName] = $session
+    return $session
+}
+
+function remove-cached-sessions
+{
+    foreach ($key in @($script:sessionCache.Keys))
+    {
+        try { Remove-PSSession $script:sessionCache[$key] } catch {}
+    }
+    $script:sessionCache = @{}
+}
+
 function invoke-remotetasks($tasks, $serverNames, $deploymentEnvironment, $packageName, $settingsFunction, $remoteexecutiontool = $null)
 {
     $servers = get-serversettings $settingsFunction $serverNames
@@ -24,6 +61,8 @@ function invoke-remotetasks($tasks, $serverNames, $deploymentEnvironment, $packa
             invoke-remotetaskwithpsexec $tasks $server $deploymentEnvironment $packageName
         }
     }
+
+    remove-cached-sessions
 }
 
 function invoke-remotetaskswithpsexec($tasks, $serverNames, $deploymentEnvironment, $packageName)
@@ -87,13 +126,9 @@ function invoke-remotetaskwithremoting($tasks, $server, $deploymentEnvironment, 
     } 
     else
     {
-        Import-Module PowerUpSecrets
-        $password = Get-KeepassSecret -VaultName $server['secret.vault.name'][0] -VaultPath $server['secret.vault.path'][0] -SecretName $server['secret.password.name'][0]
-        $credential = new-object -typename System.Management.Automation.PSCredential -argumentlist $server["username"][0], $password
+        $session = get-or-create-nondomain-session $server
 
-        $session = New-PSSession -ComputerName $serverName -Credential $credential -UseSSL
-
-        Invoke-Command -scriptblock $scriptBlock -Session $session -ArgumentList $fullLocalReleaseWorkingFolder, $deploymentEnvironment, $tasks 
+        Invoke-Command -scriptblock $scriptBlock -Session $session -ArgumentList $fullLocalReleaseWorkingFolder, $deploymentEnvironment, $tasks
     }
 
     Write-Output "========= Finished execution of tasks $tasks on server $serverName ====="
@@ -166,13 +201,8 @@ function copy-packageNonDomain($server, $packageName, $deploymentEnvironment)
     $remotePath = $remoteDir + '\' + $packageName
     $currentLocation = get-location
 
-    Import-Module PowerUpSecrets
-    
-    $password = Get-KeepassSecret -VaultName $server['secret.vault.name'][0] -VaultPath $server['secret.vault.path'][0] -SecretName $server['secret.password.name'][0]
-    $credential = new-object -typename System.Management.Automation.PSCredential -argumentlist $server["username"][0], $password
+    $session = get-or-create-nondomain-session $server
 
-    $session = New-PSSession -ComputerName $serverName -Credential $credential -UseSSL
-    
     $localLastWriteTime = (Get-Item $currentLocation\package.id).LastWriteTime.ToString("o")
     $localPackageIdFileExists = (Test-Path $currentLocation\package.id)
     $remotePackageIdFileExists = Invoke-Command -Session $session -ScriptBlock {
@@ -254,4 +284,4 @@ function enable-psremotingforpowerup
     Copy-Item $currentPath\_powerup\deploy\core\powershell.exe.config -destination C:\Windows\System32\wsmprovhost.exe.config -force
 }
                 
-export-modulemember -function invoke-remotetasks, invoke-remotetaskswithpsexec, invoke-remotetaskswithremoting, enable-psremotingforpowerup
+export-modulemember -function invoke-remotetasks, invoke-remotetaskswithpsexec, invoke-remotetaskswithremoting, enable-psremotingforpowerup, remove-cached-sessions
