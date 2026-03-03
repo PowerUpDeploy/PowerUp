@@ -1,4 +1,4 @@
-﻿default
+default
     remote.temp.working.folder	\\${server.name}\${deployment.working.folder}
     local.temp.working.folder	${local.root.drive.letter}:\${deployment.working.folder}
     deployment.working.folder	_deploytemp
@@ -7,13 +7,67 @@ localhost
     remote.temp.working.folder	${local.temp.working.folder}
     server.name					localhost
     local.root.drive.letter		c
-    
+
 devweb01
     server.name					devweb01
     local.root.drive.letter		e
     deployment.working.folder	_releasetemp
-    
+
 icevm069
     server.name					icevm069
     local.root.drive.letter		d
     deployment.working.folder	_releasetemp
+
+# -----------------------------------------------------------------------
+# Credential options
+# -----------------------------------------------------------------------
+# Set secret.store to choose how credentials are supplied.
+# Supported values: keepass  (omit the setting to use plain-text password)
+#
+# Required environment variable for KeePass: KEEPASS_MASTER_PASSWORD
+#
+# Domain-joined server — implicit Windows auth (no credentials needed):
+#
+#   domainserver01
+#       server.name             domainserver01
+#       server.domain.joined    true
+#
+# Domain-joined server — explicit credentials via plain-text (PsExec / NET USE):
+#
+#   domainserver01
+#       server.name             domainserver01
+#       server.domain.joined    true
+#       username                DOMAIN\svcaccount
+#       password                plaintextpassword
+#
+# Domain-joined server — explicit credentials via KeePass (PsExec / NET USE):
+#
+#   domainserver01
+#       server.name             domainserver01
+#       server.domain.joined    true
+#       username                DOMAIN\svcaccount
+#       secret.store            keepass
+#       secret.vault.name       MyVault
+#       secret.vault.path       C:\vaults\servers.kdbx
+#       secret.password.name    domainserver01-password
+#
+# Non-domain server — plain-text credentials (PSRemoting over SSL):
+#
+#   webserver01
+#       server.name             webserver01
+#       server.domain.joined    false
+#       username                localadmin
+#       password                plaintextpassword
+#       local.root.drive.letter c
+#
+# Non-domain server — KeePass credentials (PSRemoting over SSL):
+#
+#   webserver01
+#       server.name             webserver01
+#       server.domain.joined    false
+#       username                localadmin
+#       secret.store            keepass
+#       secret.vault.name       MyVault
+#       secret.vault.path       C:\vaults\servers.kdbx
+#       secret.password.name    webserver01-password
+#       local.root.drive.letter c
