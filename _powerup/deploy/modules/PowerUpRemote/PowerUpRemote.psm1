@@ -1,6 +1,18 @@
 
 $script:sessionCache = @{}
 
+function get-server-password($server)
+{
+    if ($server['secret.store'] -and $server['secret.store'][0] -eq 'keepass')
+    {
+        Import-Module PowerUpSecrets
+        return Get-KeepassSecret -VaultName $server['secret.vault.name'][0] `
+                                 -VaultPath $server['secret.vault.path'][0] `
+                                 -SecretName $server['secret.password.name'][0]
+    }
+    return ConvertTo-SecureString $server['password'][0] -AsPlainText -Force
+}
+
 function get-or-create-nondomain-session($server)
 {
     $serverName = $server['server.name'][0]
@@ -15,10 +27,7 @@ function get-or-create-nondomain-session($server)
         $script:sessionCache.Remove($serverName)
     }
 
-    Import-Module PowerUpSecrets
-    $password   = Get-KeepassSecret -VaultName $server['secret.vault.name'][0] `
-                                    -VaultPath $server['secret.vault.path'][0] `
-                                    -SecretName $server['secret.password.name'][0]
+    $password   = get-server-password $server
     $credential = New-Object -TypeName System.Management.Automation.PSCredential `
                       -ArgumentList $server['username'][0], $password
 
@@ -87,7 +96,9 @@ function invoke-remotetaskwithpsexec($tasks, $server, $deploymentEnvironment, $p
     #See https://docs.microsoft.com/en-us/sysinternals/downloads/psexec for PsExec switches
     if ($server.ContainsKey('username'))
     {
-        cmd /c cscript.exe /nologo $PSScriptRoot\cmd.js $PSScriptRoot\psexec.exe \\$serverName /accepteula -u $server['username'][0] -p $server['password'][0] -h -w $fullLocalReleaseWorkingFolder $batchFile $deploymentEnvironment $tasks
+        $password = get-server-password $server
+        $plainPassword = [System.Net.NetworkCredential]::new('', $password).Password
+        cmd /c cscript.exe /nologo $PSScriptRoot\cmd.js $PSScriptRoot\psexec.exe \\$serverName /accepteula -u $server['username'][0] -p $plainPassword -h -w $fullLocalReleaseWorkingFolder $batchFile $deploymentEnvironment $tasks
     }
     else
     {
@@ -166,9 +177,12 @@ function copy-packageDomain($server, $packageName)
 
     $packageCopyRequired = $false
 
-    if ($server['username'] -and $server['password'])
+    $hasKeepass = $server['secret.store'] -and $server['secret.store'][0] -eq 'keepass'
+    if ($server['username'] -and ($server['password'] -or $hasKeepass))
     {
-        set-windowscredentials -serverName $serverName -remoteDir $remoteDir -userName $server['username'][0] -password $server['password'][0]
+        $password = get-server-password $server
+        $plainPassword = [System.Net.NetworkCredential]::new('', $password).Password
+        set-windowscredentials -serverName $serverName -remoteDir $remoteDir -userName $server['username'][0] -password $plainPassword
     }
 
     if ((!(Test-Path $remotePath\package.id) -or !(Test-Path $currentLocation\package.id)))
