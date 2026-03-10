@@ -12,7 +12,7 @@ function Find-CertificateBySubjectName([string]$SubjectName)
 
             if ($matches.Count -gt 1)
             {
-                Write-Output "Found $($matches.Count) certificates matching '$SubjectName' in $store, using the one expiring $($cert.NotAfter)"
+                Write-Host "Found $($matches.Count) certificates matching '$SubjectName' in $store, using the one expiring $($cert.NotAfter)"
             }
 
             if (!$cert.HasPrivateKey)
@@ -144,11 +144,11 @@ function Get-AzureKeyVaultSecret(
     [switch]$AsPlainText
 )
 {
-    Write-Output "Retrieving secret '$SecretName' from Azure KeyVault '$VaultUrl'"
+    Write-Host "Retrieving secret '$SecretName' from Azure KeyVault '$VaultUrl'"
 
     $cert = Find-CertificateBySubjectName $CertificateSubjectName
 
-    Write-Output "Authenticating to Azure AD using certificate '$($cert.Subject)'"
+    Write-Host "Authenticating to Azure AD using certificate '$($cert.Subject)'"
     $jwt = New-JwtClientAssertion -Certificate $cert -TenantId $TenantId -ClientId $ClientId
     $accessToken = Get-AzureAccessToken -TenantId $TenantId -ClientId $ClientId -ClientAssertion $jwt
 
