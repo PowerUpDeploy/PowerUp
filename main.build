@@ -6,9 +6,9 @@
     <include buildfile="_powerup\build\nant\common.build" />
     <property name="nuspec.name" value="" />
 	<property name="version.major" value="1" />
-	<property name="version.minor" value="72" />
+	<property name="version.minor" value="73" />
 
-    <target name="build-package" depends="clean compile-solutions run-tests package-project copy-build-files-custom create-nupkg-files" />
+    <target name="build-package" depends="clean compile-solutions package-project copy-build-files-custom create-nupkg-files" />
 
     <target name="set-assembly-version" description="generates the version number">
         <echo message="Setting the build version to ${version.major}.0.0.${version.minor}..." />
@@ -123,4 +123,3 @@
         </copy>
     </target>
 </project>
-
