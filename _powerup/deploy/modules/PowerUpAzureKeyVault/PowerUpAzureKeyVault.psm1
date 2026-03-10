@@ -49,17 +49,11 @@ function New-JwtClientAssertion(
     [string]$ClientId
 )
 {
-    # Decode thumbprint hex string to bytes (compatible with .NET 4.x)
-    $thumbprintHex = $Certificate.Thumbprint
-    $thumbprintBytes = for ($i = 0; $i -lt $thumbprintHex.Length; $i += 2)
-    {
-        [Convert]::ToByte($thumbprintHex.Substring($i, 2), 16)
-    }
-
-    $x5t = ConvertTo-Base64UrlEncoded $thumbprintBytes
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    $x5tS256 = ConvertTo-Base64UrlEncoded ($sha256.ComputeHash($Certificate.RawData))
 
     $header = ConvertTo-Base64UrlEncoded ([Text.Encoding]::UTF8.GetBytes(
-        (ConvertTo-Json @{ alg = "RS256"; typ = "JWT"; x5t = $x5t } -Compress)
+        (ConvertTo-Json @{ alg = "RS256"; typ = "JWT"; "x5t#S256" = $x5tS256 } -Compress)
     ))
 
     $now = [DateTimeOffset]::UtcNow
