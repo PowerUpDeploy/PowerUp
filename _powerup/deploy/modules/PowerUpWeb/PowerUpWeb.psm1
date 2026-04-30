@@ -151,13 +151,11 @@ function NoExistingWebsites {
 }
 
 function Set-SniCertBinding($certificate, $ip, $port, $hostname) {
-	if ($ip -eq "*") { $ip = "0.0.0.0" }
-	$sniPath = "IIS:\SslBindings\${ip}!${port}!${hostname}"
-	try {
-		$certificate | New-Item $sniPath | Out-Null
-	} catch {
-		$certificate | Set-Item $sniPath | Out-Null
-	}
+	# IIS PSDrive is unreliable for SNI (IP!Port!Hostname) paths; netsh talks directly to http.sys
+	$appId = "{00000000-0000-0000-0000-000000000000}"
+	netsh http delete sslcert hostnameport="${hostname}:${port}" 2>&1 | Out-Null
+	$result = netsh http add sslcert hostnameport="${hostname}:${port}" certhash=$($certificate.Thumbprint) appid=$appId certstorename=MY
+	if ($LASTEXITCODE -ne 0) { throw "Failed to add SNI SSL binding for ${hostname}:${port}: $result" }
 }
 
 function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $ipAddress, $port, $url, $sni)
