@@ -153,8 +153,11 @@ function NoExistingWebsites {
 function Set-SniCertBinding($certificate, $ip, $port, $hostname) {
 	if ($ip -eq "*") { $ip = "0.0.0.0" }
 	$sniPath = "IIS:\SslBindings\${ip}!${port}!${hostname}"
-	Remove-Item $sniPath -ErrorAction SilentlyContinue
-	$certificate | New-Item $sniPath | Out-Null
+	try {
+		$certificate | New-Item $sniPath | Out-Null
+	} catch {
+		$certificate | Set-Item $sniPath | Out-Null
+	}
 }
 
 function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $ipAddress, $port, $url, $sni)
