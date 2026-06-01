@@ -3,7 +3,7 @@ $script:sessionCache = @{}
 
 function get-server-password($server)
 {
-    if ($server['secret.store'] -and $server['secret.store'][0] -eq 'keepass')
+    if ($server['secret.source'] -and $server['secret.source'][0] -eq 'keepass')
     {
         Import-Module PowerUpSecrets
         return Get-KeepassSecret -VaultName $server['secret.vault.name'][0] `
