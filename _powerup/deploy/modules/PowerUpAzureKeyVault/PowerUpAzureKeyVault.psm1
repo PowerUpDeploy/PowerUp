@@ -74,7 +74,8 @@ function New-JwtClientAssertion(
     $dataToSign = [Text.Encoding]::UTF8.GetBytes("$header.$claims")
 
     # Use the string overload of SignData for .NET 4.x / RSACryptoServiceProvider compatibility
-    $signatureBytes = $Certificate.PrivateKey.SignData($dataToSign, "SHA256")
+    $rsa = [System.Security.Cryptography.X509Certificates.RSACertificateExtensions]::GetRSAPrivateKey($Certificate)
+    $signatureBytes = $rsa.SignData($dataToSign, [System.Security.Cryptography.HashAlgorithmName]::SHA256, [System.Security.Cryptography.RSASignaturePadding]::Pkcs1)
     $signature = ConvertTo-Base64UrlEncoded $signatureBytes
 
     return "$header.$claims.$signature"

@@ -150,14 +150,15 @@ function NoExistingWebsites {
 
 }
 
-function Set-SniCertBinding($certificate, $ip, $port, $hostname) {
-	if ($ip -eq "*") { $ip = "0.0.0.0" }
-	$sniPath = "IIS:\SslBindings\${ip}!${port}!${hostname}"
-	if (Test-Path $sniPath) {
-		$certificate | Set-Item $sniPath | Out-Null
-	} else {
-		$certificate | New-Item $sniPath | Out-Null
+function Set-SniCertBinding($certificate, $websiteName, $port, $url, $hostname) {
+    $thumbprint = $certificate.Thumbprint
+	$binding = Get-WebBinding -Name $websiteName -Protocol "https" -Port $port -HostHeader $url
+
+	if(!$binding) {
+		throw "No existing https binding for $websiteName on port $port and url $url. Unable to set certificate $($certificate.FriendlyName) with SNI enabled"
 	}
+
+	$binding | ForEach-Object { $_.AddSslCertificate($thumbprint, "My") }
 }
 
 function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $ipAddress, $port, $url, $sni)
