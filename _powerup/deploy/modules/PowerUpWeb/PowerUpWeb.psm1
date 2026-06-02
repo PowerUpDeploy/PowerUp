@@ -150,15 +150,29 @@ function NoExistingWebsites {
 
 }
 
-function Set-SniCertBinding($certificate, $websiteName, $port, $url, $hostname) {
-    $thumbprint = $certificate.Thumbprint
-	$binding = Get-WebBinding -Name $websiteName -Protocol "https" -Port $port -HostHeader $url
+function Set-SniCertBinding($certificate, $websiteName, $port, $url, $ip = "*") {
+    $mwaPath = "$env:SystemRoot\System32\inetsrv\Microsoft.Web.Administration.dll"
+    if (!(Test-Path $mwaPath)) { throw "Microsoft.Web.Administration.dll not found at $mwaPath - is IIS installed?" }
+    Add-Type -Path $mwaPath
+    $serverManager = New-Object Microsoft.Web.Administration.ServerManager
 
-	if(!$binding) {
-		throw "No existing https binding for $websiteName on port $port and url $url. Unable to set certificate $($certificate.FriendlyName) with SNI enabled"
-	}
+    $site = $serverManager.Sites[$websiteName]
+    if (!$site) { throw "Site '$websiteName' not found in IIS" }
 
-	$binding | ForEach-Object { $_.AddSslCertificate($thumbprint, "My") }
+    $bindingInfo = "${ip}:${port}:${url}"
+
+    # Remove any existing https binding for this ip:port:host combination to avoid stale state
+    $existingBindings = @($site.Bindings | Where-Object {
+        $_.Protocol -eq "https" -and $_.BindingInformation -eq $bindingInfo
+    })
+    foreach ($b in $existingBindings) {
+        $site.Bindings.Remove($b)
+    }
+
+    $binding = $site.Bindings.Add($bindingInfo, $certificate.GetCertHash(), "My", 1)
+    if (!$binding) { throw "Failed to add https binding '$bindingInfo' to site '$websiteName'" }
+    $serverManager.CommitChanges()
+    Write-Output "SNI SSL binding configured: $url on ${ip}:${port} for site $websiteName"
 }
 
 function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $ipAddress, $port, $url, $sni)
@@ -169,13 +183,14 @@ function Set-WebsiteForSsl($useSelfSignedCert, $websiteName, $certificateName, $
 		set-selfsignedsslcertificate ${certificateName}
 	}
 
-	set-sslbinding $certificateName $ipAddress $port
-	set-websitebinding $websiteName $url "https" $ipAddress $port $sni
+	$certificate = GetSslCertificate $certificateName
+	if (!$certificate) { throw "Certificate for site $certificateName not in current store" }
 
 	if ($sni) {
-		$certificate = GetSslCertificate $certificateName
-		if (!$certificate) { throw "Certificate for site $certificateName not in current store" }
-		Set-SniCertBinding $certificate $ipAddress $port $url
+		Set-SniCertBinding $certificate $websiteName $port $url $ipAddress
+	} else {
+		set-sslbinding $certificateName $ipAddress $port
+		set-websitebinding $websiteName $url "https" $ipAddress $port $false
 	}
 }
 
